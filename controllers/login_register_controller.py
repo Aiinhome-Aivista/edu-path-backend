@@ -4,8 +4,9 @@ import smtplib
 import os
 from email.mime.text import MIMEText
 from datetime import datetime, timedelta
-from werkzeug.security import generate_password_hash, check_password_hash
 from database.db_connection import get_db_connection
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
 
 
 REGISTER_OTP_STORE = {}
@@ -27,35 +28,87 @@ def send_email(email, otp, purpose):
         smtp_user = os.getenv("MAIL_USERNAME")
         smtp_pass = os.getenv("MAIL_PASSWORD")
 
-        subject = "EDU-PATH Email Verification OTP"
-        body = f"""
+        # ============================
+        # Dynamic Subject
+        # ============================
+        subject = f"EDU-PATH | {purpose} OTP Verification"
+
+        # ============================
+        # Dynamic Text Version
+        # ============================
+        text_body = f"""
 Hello,
 
-Your OTP for registration is: {otp}
+Your OTP for {purpose.lower()} is: {otp}
+
 This OTP is valid for 5 minutes.
+
+If you did not request this, please ignore this email.
 
 Regards,
 EDU-PATH Team
 """
-        msg = MIMEText(body)
-        msg["Subject"] = subject
-        msg["From"] = smtp_user
-        msg["To"] = email
+
+        # ============================
+        # HTML Version (Professional Look)
+        # ============================
+        html_body = f"""
+<html>
+  <body style="font-family: Arial, sans-serif; background-color:#f4f6f9; padding:20px;">
+    <div style="max-width:500px; margin:auto; background:white; padding:25px; border-radius:8px;">
+      
+      <h2 style="color:#2c3e50;">EDU-PATH</h2>
+      <p>Hello,</p>
+
+      <p>You requested an OTP for <b>{purpose}</b>.</p>
+
+      <div style="text-align:center; margin:20px 0;">
+        <span style="font-size:28px; letter-spacing:4px; font-weight:bold; color:#34495e;">
+          {otp}
+        </span>
+      </div>
+
+      <p>This OTP is valid for <b>5 minutes</b>.</p>
+
+      <p style="color:#7f8c8d; font-size:13px;">
+        If you did not request this, please ignore this email.
+      </p>
+
+      <hr style="margin:20px 0;">
+      <p style="font-size:12px; color:#95a5a6;">
+        © {datetime.now().year} EDU-PATH. All rights reserved.
+      </p>
+
+    </div>
+  </body>
+</html>
+"""
+
+        # ============================
+        # Build Email
+        # ============================
+        message = MIMEMultipart("alternative")
+        message["Subject"] = subject
+        message["From"] = smtp_user
+        message["To"] = email
+
+        message.attach(MIMEText(text_body, "plain"))
+        message.attach(MIMEText(html_body, "html"))
 
         server = smtplib.SMTP(smtp_server, smtp_port)
         server.starttls()
         server.login(smtp_user, smtp_pass)
-        server.sendmail(smtp_user, email, msg.as_string())
+        server.sendmail(smtp_user, email, message.as_string())
         server.quit()
 
         return True
+
     except Exception as e:
         print("SMTP ERROR:", e)
         return False
 
-
 # ======================================
-# USERNAME SUGGESTION
+# USERNAME SUGGESTION (STRICT UNIQUE)
 # ======================================
 
 def suggest_usernames(data):
@@ -67,24 +120,25 @@ def suggest_usernames(data):
     conn = get_db_connection()
     cursor = conn.cursor()
 
-    suggestions = []
-    counter = 0
+    suggestions = set()
 
     while len(suggestions) < 5:
-        if counter == 0:
-            uname = base
-        else:
-            uname = f"{base}{random.randint(100,999)}"
+        uname = f"{base}{random.randint(100,999)}"
 
-        cursor.execute("SELECT user_id FROM user_master WHERE username=%s", (uname,))
+        cursor.execute(
+            "SELECT user_id FROM user_master WHERE username=%s",
+            (uname,)
+        )
+
         if not cursor.fetchone():
-            suggestions.append(uname)
-
-        counter += 1
+            suggestions.add(uname)
 
     conn.close()
 
-    return {"status": "success", "suggestions": suggestions}
+    return {
+        "status": "success",
+        "suggestions": list(suggestions)
+    }
 
 
 # ======================================
@@ -118,7 +172,7 @@ def send_register_otp(data):
 
 
 # ======================================
-# VERIFY REGISTER OTP
+# VERIFY REGISTER OTP (INSERT USER)
 # ======================================
 
 def verify_register_otp(data):
@@ -142,21 +196,28 @@ def verify_register_otp(data):
     conn = get_db_connection()
     cursor = conn.cursor()
 
-    hashed = generate_password_hash(user_data["password"])
+    # Double check username uniqueness
+    cursor.execute(
+        "SELECT user_id FROM user_master WHERE username=%s",
+        (user_data["username"],)
+    )
+
+    if cursor.fetchone():
+        conn.close()
+        return {"status": "error", "message": "Username already exists"}
 
     cursor.execute("""
         INSERT INTO user_master
         (role, full_name, username, email, mobile,
-         password, is_active, is_verified,
+         is_active, is_verified,
          created_at, updated_at)
-        VALUES (%s,%s,%s,%s,%s,%s,1,1,NOW(),NOW())
+        VALUES (%s,%s,%s,%s,%s,1,1,NOW(),NOW())
     """, (
         user_data["role"],
         user_data["full_name"],
         user_data["username"],
         user_data["email"],
-        user_data["mobile"],
-        hashed
+        user_data["mobile"]
     ))
 
     conn.commit()
@@ -202,13 +263,12 @@ def send_login_otp(data):
 
 
 # ======================================
-# VERIFY LOGIN
+# VERIFY LOGIN (OTP ONLY)
 # ======================================
 
 def verify_login(data):
     username = data.get("username")
     otp = data.get("otp")
-    password = data.get("password")
 
     if username not in LOGIN_OTP_STORE:
         return {"status": "error", "message": "No login OTP found"}
@@ -225,21 +285,18 @@ def verify_login(data):
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
 
-    cursor.execute("SELECT * FROM user_master WHERE username=%s", (username,))
+    cursor.execute(
+        "SELECT user_id, username, role FROM user_master WHERE username=%s",
+        (username,)
+    )
+
     user = cursor.fetchone()
     conn.close()
-
-    if not check_password_hash(user["password"], password):
-        return {"status": "error", "message": "Invalid password"}
 
     del LOGIN_OTP_STORE[username]
 
     return {
         "status": "success",
         "message": "Login successful",
-        "user": {
-            "user_id": user["user_id"],
-            "username": user["username"],
-            "role": user["role"]
-        }
+        "user": user
     }
