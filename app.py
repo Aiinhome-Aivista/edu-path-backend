@@ -14,7 +14,7 @@ from controllers.school_controller import get_schools_by_board
 from controllers.student_profile_controller import get_student_full_profile_secure, save_student_academic_profile
 from utils.decorators import token_required
 from controllers.subject_controller import get_school_class_subjects, save_student_subjects
-from controllers.subscription_controller import get_subscription_plans
+from controllers.subscription_controller import get_subscription_plans, verify_subscription_amount, create_subscription_after_payment
 
 app = Flask(__name__)
 CORS(app)
@@ -77,6 +77,14 @@ def student_dashboard(current_user):
 @app.route("/plans", methods=["POST"])
 def subscription_plans():
     return jsonify(get_subscription_plans(request.json))
+
+@app.route("/validate-plan-amount", methods=["POST"])
+def verify_payment_amount():
+    return jsonify(verify_subscription_amount(request.json))
+
+@app.route("/complete-subscription", methods=["POST"])
+def complete_subscription():
+    return jsonify(create_subscription_after_payment(request.json))
 
 
 if __name__ == "__main__":
