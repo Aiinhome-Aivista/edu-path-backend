@@ -58,14 +58,22 @@ def save_student_subjects(data):
             return {
                 "status": "error",
                 "code": 400,
-                "message": "All fields required",
+                "message": "username, academic_year and class_subject_ids required",
+                "data": []
+            }
+
+        if not isinstance(class_subject_ids, list):
+            return {
+                "status": "error",
+                "code": 400,
+                "message": "class_subject_ids must be a list",
                 "data": []
             }
 
         conn = get_db_connection()
         cursor = conn.cursor(dictionary=True)
 
-        # Get user_id
+        # 1️⃣ Get user_id
         cursor.execute(
             "SELECT user_id FROM user_master WHERE username = %s",
             (username,)
@@ -83,7 +91,7 @@ def save_student_subjects(data):
 
         user_id = user["user_id"]
 
-        # Get profile
+        # 2️⃣ Get academic profile
         cursor.execute("""
             SELECT id FROM student_academic_profile
             WHERE user_id = %s AND academic_year = %s
@@ -102,14 +110,32 @@ def save_student_subjects(data):
 
         profile_id = profile["id"]
 
-        # Delete old selections
+        # 3️⃣ Validate class_subject_ids exist
+        format_strings = ','.join(['%s'] * len(class_subject_ids))
+        cursor.execute(f"""
+            SELECT id FROM class_subjects
+            WHERE id IN ({format_strings})
+        """, tuple(class_subject_ids))
+
+        valid_ids = [row["id"] for row in cursor.fetchall()]
+
+        if len(valid_ids) != len(class_subject_ids):
+            conn.close()
+            return {
+                "status": "error",
+                "code": 400,
+                "message": "One or more class_subject_ids are invalid",
+                "data": []
+            }
+
+        # 4️⃣ Delete previous selections
         cursor.execute("""
             DELETE FROM student_selected_subjects
             WHERE profile_id = %s
         """, (profile_id,))
 
-        # Insert new
-        for cs_id in class_subject_ids:
+        # 5️⃣ Insert new selections
+        for cs_id in valid_ids:
             cursor.execute("""
                 INSERT INTO student_selected_subjects
                 (profile_id, class_subject_id)
@@ -122,7 +148,11 @@ def save_student_subjects(data):
         return {
             "status": "success",
             "code": 200,
-            "message": "Student subjects saved successfully"
+            "message": "Student subjects saved successfully",
+            "data": {
+                "profile_id": profile_id,
+                "selected_subject_count": len(valid_ids)
+            }
         }
 
     except Exception as e:
@@ -131,5 +161,4 @@ def save_student_subjects(data):
             "code": 500,
             "message": str(e),
             "data": []
-        }
-    
+        }  
