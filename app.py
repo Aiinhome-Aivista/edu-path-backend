@@ -14,6 +14,7 @@ from controllers.school_controller import get_schools_by_board
 from controllers.student_profile_controller import save_student_academic_profile
 from utils.decorators import token_required
 from controllers.subject_controller import get_school_class_subjects, save_student_subjects
+from controllers.subscription_controller import get_subscription_plans
 
 app = Flask(__name__)
 CORS(app)
@@ -67,6 +68,10 @@ def class_subjects():
 @app.route("/save-student-subjects", methods=["POST"])
 def save_subjects():
     return jsonify(save_student_subjects(request.json))
+
+@app.route("/plans", methods=["POST"])
+def subscription_plans():
+    return jsonify(get_subscription_plans(request.json))
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)
