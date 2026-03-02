@@ -1,2 +1,4 @@
 .env
 venv
+controllers/__pycache__
+database/__pycache__
