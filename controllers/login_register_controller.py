@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 from database.db_connection import get_db_connection
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
-
+from utils.auth_utils import generate_token
 
 REGISTER_OTP_STORE = {}
 LOGIN_OTP_STORE = {}
@@ -196,37 +196,43 @@ def verify_register_otp(data):
     conn = get_db_connection()
     cursor = conn.cursor()
 
-    # Double check username uniqueness
-    cursor.execute(
-        "SELECT user_id FROM user_master WHERE username=%s",
-        (user_data["username"],)
-    )
-
+    cursor.execute("SELECT user_id FROM user_master WHERE username=%s", (user_data["username"],))
     if cursor.fetchone():
         conn.close()
         return {"status": "error", "message": "Username already exists"}
 
-    cursor.execute("""
-        INSERT INTO user_master
-        (role, full_name, username, email, mobile,
-         is_active, is_verified,
-         created_at, updated_at)
-        VALUES (%s,%s,%s,%s,%s,1,1,NOW(),NOW())
-    """, (
-        user_data["role"],
-        user_data["full_name"],
-        user_data["username"],
-        user_data["email"],
-        user_data["mobile"]
-    ))
+    cursor.execute("SELECT user_id FROM user_master WHERE mobile=%s", (user_data["mobile"],))
+    if cursor.fetchone():
+        conn.close()
+        return {"status": "error", "message": "Mobile number already registered"}
 
-    conn.commit()
+    try:
+        cursor.execute("""
+            INSERT INTO user_master
+            (role, full_name, username, email, mobile,
+             is_active, is_verified,
+             created_at, updated_at)
+            VALUES (%s,%s,%s,%s,%s,1,1,NOW(),NOW())
+        """, (
+            user_data["role"],
+            user_data["full_name"],
+            user_data["username"],
+            user_data["email"],
+            user_data["mobile"]
+        ))
+        conn.commit()
+    except Exception as e:
+        conn.rollback()
+        conn.close()
+        return {"status": "error", "message": "Registration failed, please try again"}
+    
     conn.close()
-
     del REGISTER_OTP_STORE[email]
 
-    return {"status": "success", "message": "Registration successful"}
-
+    return {
+        "status": "success", 
+        "message": "Registration successful",
+    }
 
 # ======================================
 # LOGIN - SEND OTP
@@ -294,9 +300,16 @@ def verify_login(data):
     conn.close()
 
     del LOGIN_OTP_STORE[username]
+    
+    token = generate_token({
+        "user_id": user["user_id"], 
+        "username": user["username"], 
+        "role": user["role"]
+    })
 
     return {
         "status": "success",
         "message": "Login successful",
-        "user": user
+        "user": user,
+        "token": token
     }

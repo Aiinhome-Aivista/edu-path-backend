@@ -61,7 +61,6 @@ def save_student_academic_profile(data):
             action = "updated"
 
         else:
-            # ➕ Insert new profile
             cursor.execute("""
                 INSERT INTO student_academic_profile
                 (user_id, board_id, school_id, class_id, academic_year)

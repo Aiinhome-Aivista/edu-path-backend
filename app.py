@@ -12,30 +12,27 @@ from controllers.login_register_controller import (
 )
 from controllers.school_controller import get_schools_by_board
 from controllers.student_profile_controller import save_student_academic_profile
+from utils.decorators import token_required
+from controllers.subject_controller import get_school_class_subjects, save_student_subjects
 
 app = Flask(__name__)
 CORS(app)
-
 
 @app.route("/suggest-username", methods=["POST"])
 def suggest():
     return jsonify(suggest_usernames(request.json))
 
-
 @app.route("/send-register-otp", methods=["POST"])
 def send_reg():
     return jsonify(send_register_otp(request.json))
-
 
 @app.route("/verify-register-otp", methods=["POST"])
 def verify_reg():
     return jsonify(verify_register_otp(request.json))
 
-
 @app.route("/send-login-otp", methods=["POST"])
 def send_login():
     return jsonify(send_login_otp(request.json))
-
 
 @app.route("/verify-login", methods=["POST"])
 def verify_login_route():
@@ -57,10 +54,19 @@ def classes():
 def academic_year():
     return jsonify(get_academic_year(request.json))
 
-
 @app.route("/save-student-academic-profile", methods=["POST"])
-def save_student_profile():
-    return jsonify(save_student_academic_profile(request.json))
+@token_required
+def save_student_profile(current_user):
+    data = request.json
+    return jsonify(save_student_academic_profile(data))
+
+@app.route("/class-subjects", methods=["POST"])
+def class_subjects():
+    return jsonify(get_school_class_subjects(request.json))
+
+@app.route("/save-student-subjects", methods=["POST"])
+def save_subjects():
+    return jsonify(save_student_subjects(request.json))
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)
