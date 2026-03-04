@@ -15,7 +15,7 @@ from controllers.student_assign_test import create_student_test
 from controllers.student_profile_controller import get_student_full_profile_secure, save_student_academic_profile
 from utils.decorators import token_required
 from controllers.subject_controller import get_school_class_subjects, save_student_subjects
-from controllers.subscription_controller import get_subscription_plans
+from controllers.subscription_controller import get_subscription_plans, verify_subscription_amount, create_subscription_after_payment
 
 app = Flask(__name__)
 CORS(app)
@@ -82,6 +82,15 @@ def subscription_plans():
 @app.route("/create-student-test", methods=["POST"])
 def create_student_test_controller():
 	return create_student_test()
+
+@app.route("/validate-plan-amount", methods=["POST"])
+def verify_payment_amount():
+    return jsonify(verify_subscription_amount(request.json))
+
+@app.route("/complete-subscription", methods=["POST"])
+def complete_subscription():
+    return jsonify(create_subscription_after_payment(request.json))
+
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)
