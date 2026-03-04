@@ -13,6 +13,7 @@ from controllers.login_register_controller import (
 from controllers.school_controller import get_schools_by_board
 from controllers.student_assign_test import create_student_test
 from controllers.student_profile_controller import get_student_full_profile_secure, save_student_academic_profile
+from controllers.study_plan_controller import get_study_plan_dashboard
 from utils.decorators import token_required
 from controllers.subject_controller import get_school_class_subjects, save_student_subjects
 from controllers.subscription_controller import get_subscription_plans, verify_subscription_amount, create_subscription_after_payment
@@ -74,6 +75,11 @@ def save_subjects():
 @token_required
 def student_dashboard(current_user): 
     return jsonify(get_student_full_profile_secure(current_user))
+
+@app.route("/study-plan", methods=["GET"])
+@token_required
+def study_plan_dashboard(current_user):
+    return jsonify(get_study_plan_dashboard(current_user))
 
 @app.route("/plans", methods=["POST"])
 def subscription_plans():
