@@ -11,6 +11,7 @@ from controllers.login_register_controller import (
     verify_login
 )
 from controllers.school_controller import get_schools_by_board
+from controllers.student_assign_test import create_student_test
 from controllers.student_profile_controller import get_student_full_profile_secure, save_student_academic_profile
 from utils.decorators import token_required
 from controllers.subject_controller import get_school_class_subjects, save_student_subjects
@@ -78,6 +79,9 @@ def student_dashboard(current_user):
 def subscription_plans():
     return jsonify(get_subscription_plans(request.json))
 
+@app.route("/create-student-test", methods=["POST"])
+def create_student_test_controller():
+	return create_student_test()
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)
