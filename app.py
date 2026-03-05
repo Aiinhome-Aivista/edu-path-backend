@@ -1,5 +1,6 @@
 from flask_cors import CORS
 from flask import Flask, request, jsonify
+from controllers.submit_controller import submit_test
 from utils.decorators import token_required
 from controllers.start_test import create_attempt
 from controllers.board_controller import get_boards
@@ -134,7 +135,9 @@ def save_student_answer_controller():
 def create_attempt_controller():
     return create_attempt()
 
-
+@app.route("/submit-test", methods=["POST"])
+def submit_test_controller():
+    return submit_test()
 
 
 
