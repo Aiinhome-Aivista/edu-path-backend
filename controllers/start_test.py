@@ -25,12 +25,12 @@ def create_attempt():
 
         return jsonify({
             "status": True,
-            "statuscode": 201,
+            "statuscode": 200,
             "data": {
                 "attempt_id": attempt_id
             },
             "message": "Attempt created successfully"
-        }), 201
+        }), 200
 
     except Exception as e:
 
