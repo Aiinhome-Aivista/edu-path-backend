@@ -1,5 +1,5 @@
 import json
-from database.db_connection import get_db_connection
+from models.subscription_model import SubscriptionModel
 
 def get_subscription_plans(data):
     try:
@@ -15,24 +15,12 @@ def get_subscription_plans(data):
                 "data": []
             }
 
-        conn = get_db_connection()
-        if not conn:
-            return {
-                "status": "error",
-                "code": 500,
-                "message": "Database connection failed",
-                "data": []
-            }
-
-        cursor = conn.cursor(dictionary=True)
         subject_ids_json = json.dumps(subject_ids)
-        cursor.callproc('sp_get_subscription_plans', (board_id, class_id, subject_ids_json))
-        results = []
-        for result in cursor.stored_results():
-            results = result.fetchall()
-            break
+        
+        # Abstraction: Call to Model layer handles all Database Logic
+        results = SubscriptionModel.get_subscription_plans(board_id, class_id, subject_ids_json)
 
-        conn.close()
+        # Presentation formatting
         plans_dict = {}
 
         for row in results:
@@ -88,6 +76,7 @@ def get_subscription_plans(data):
 
 def verify_subscription_amount(data):
     try:
+        user_id = data.get("user_id")
         plan_id = data.get("plan_id")
         board_id = data.get("board_id")
         class_id = data.get("class_id")
@@ -95,40 +84,29 @@ def verify_subscription_amount(data):
         ui_total_amount = data.get("ui_total_amount")
         total_licences = data.get("total_licences")
 
-        if any(v is None for v in [plan_id, board_id, class_id, subject_ids, ui_total_amount, total_licences]):
+        if any(v is None for v in [user_id, plan_id, board_id, class_id, subject_ids, ui_total_amount, total_licences]):
             return {
                 "status": "error",
                 "code": 400,
-                "message": "All fields (plan_id, board_id, class_id, subject_ids, ui_total_amount, total_licences) are required",
+                "message": "All fields (user_id, plan_id, board_id, class_id, subject_ids, ui_total_amount, total_licences) are required",
                 "data": []
             }
 
-        conn = get_db_connection()
-        if not conn:
-            return {
-                "status": "error",
-                "code": 500,
-                "message": "Database connection failed",
-                "data": []
-            }
-
-        cursor = conn.cursor()
-        
         subject_ids_json = json.dumps(subject_ids)
         
-        result_args = cursor.callproc('sp_verify_subscription_amount', (
-            plan_id, 
-            board_id, 
-            class_id, 
-            subject_ids_json, 
-            total_licences, 
-            0.0
-        ))
+        # Abstraction: Model processes OUT parameter fetching silently
+        calculated_amount = SubscriptionModel.verify_subscription_amount(
+            user_id, plan_id, board_id, class_id, subject_ids_json, total_licences
+        )
         
-        conn.close()
-        
-        calculated_amount = float(result_args[5])
-        
+        if calculated_amount == -2.00:
+             return {
+                "status": "error",
+                "code": 403,
+                "message": "Students are restricted to a maximum of 1 license.",
+                "data": []
+            }
+            
         if calculated_amount == -1.00:
              return {
                 "status": "error",
@@ -166,6 +144,7 @@ def verify_subscription_amount(data):
 
 def create_subscription_after_payment(data):
     try:
+        user_id = data.get("user_id")
         plan_id = data.get("plan_id")
         board_id = data.get("board_id")
         class_id = data.get("class_id")
@@ -178,38 +157,21 @@ def create_subscription_after_payment(data):
         ui_total_amount = data.get("ui_total_amount", 0.0)
         coupon_code = data.get("coupon_code")
         
-        user_id = data.get("user_id", 1)
-
-        conn = get_db_connection()
-        if not conn:
+        if user_id is None:
             return {
                 "status": "error",
-                "code": 500,
-                "message": "Database connection failed",
+                "code": 400,
+                "message": "user_id is required",
                 "data": None
             }
-
-        cursor = conn.cursor()
-        
         subject_ids_json = json.dumps(subject_ids)
         
-        cursor.callproc('sp_create_subscription', (
-            user_id,
-            plan_id,
-            board_id,
-            class_id,
-            institute_id,
-            subject_ids_json,
-            total_licenses,
-            licences_used,
-            transaction_id,
-            subscription_name,
-            ui_total_amount,
-            coupon_code
-        ))
-        
-        conn.commit()
-        conn.close()
+        # Abstraction: Transaction handling via SubscriptionModel
+        SubscriptionModel.create_subscription(
+            user_id, plan_id, board_id, class_id, institute_id, subject_ids_json, 
+            total_licenses, licences_used, transaction_id, subscription_name, 
+            ui_total_amount, coupon_code
+        )
         
         return {
             "code": 200,
