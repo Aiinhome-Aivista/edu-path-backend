@@ -21,6 +21,10 @@ from utils.decorators import token_required
 from controllers.subject_controller import get_school_class_subjects, save_student_subjects
 from controllers.subscription_controller import get_subscription_plans, verify_subscription_amount, create_subscription_after_payment
 from controllers.student_assign_test import create_student_test
+from controllers.relationship_controller import send_join_request
+from controllers.notification_controller import get_notifications, respond_join_request
+from controllers.user_subscription_controller import get_user_subscriptions, assign_subscription_license
+
 
 app = Flask(__name__)
 CORS(app)
@@ -89,6 +93,27 @@ def study_plan_dashboard(current_user):
 def subscription_plans():
     return jsonify(get_subscription_plans(request.json))
 
+@app.route("/user-subscriptions", methods=["POST"])
+def api_get_user_subscriptions():
+    return jsonify(get_user_subscriptions(request.json))
+
+@app.route("/assign-subscription-license", methods=["POST"])
+def api_assign_subscription_license():
+    return jsonify(assign_subscription_license(request.json))
+
+@app.route("/send-join-request", methods=["POST"])
+def api_send_join_request():
+    return jsonify(send_join_request(request.json))
+
+@app.route("/notifications", methods=["GET"])
+def api_get_notifications():
+    user_id = request.args.get("user_id")
+    return jsonify(get_notifications(user_id))
+
+@app.route("/respond-join-request", methods=["POST"])
+def api_respond_join_request():
+    return jsonify(respond_join_request(request.json))    
+
 @app.route("/create-student-test", methods=["POST"])
 def create_student_test_controller():
 	return create_student_test()
@@ -116,6 +141,8 @@ def save_student_answer_controller():
 @app.route("/start-test", methods=["POST"])
 def create_attempt_controller():
     return create_attempt()
+
+
 
 
 
