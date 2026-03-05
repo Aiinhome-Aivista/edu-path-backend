@@ -19,6 +19,8 @@ from controllers.user_subscription_controller import get_user_subscriptions, ass
 from controllers.student_profile_controller import get_student_full_profile_secure, save_student_academic_profile
 from controllers.subscription_controller import get_subscription_plans, verify_subscription_amount, create_subscription_after_payment
 from controllers.login_register_controller import suggest_usernames,send_register_otp,verify_register_otp,send_login_otp,verify_login
+from controllers.student_dashboard_controller import get_test_details
+
 
 
 app = Flask(__name__)
@@ -138,6 +140,12 @@ def create_attempt_controller():
 @app.route("/submit-test", methods=["POST"])
 def submit_test_controller():
     return submit_test()
+
+@app.route("/get-test-details", methods=["GET"])
+def api_get_test_details():
+    # Calling the controller directly, returning JSON
+    return jsonify(get_test_details()), 200
+
 
 
 
